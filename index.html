@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kompetisi Mengetik Kilat - Multiuser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .word-highlight { color: #3b82f6; text-decoration: underline; font-weight: bold; }
+        .word-correct { color: #10b981; }
+        .word-wrong { color: #ef4444; }
+        #input-field:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
+        .scroll-custom::-webkit-scrollbar { width: 6px; }
+        .scroll-custom::-webkit-scrollbar-track { background: transparent; }
+        .scroll-custom::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen p-4 font-sans">
+
+    <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Kolom Kiri: Game -->
+        <div class="lg:col-span-2 space-y-6">
+            <div class="bg-white rounded-2xl shadow-xl p-8">
+                <div class="flex justify-between items-center mb-8">
+                    <div>
+                        <h1 class="text-3xl font-bold text-slate-800">Typing Challenge 🚀</h1>
+                        <p id="user-display" class="text-slate-500 text-sm">Menunggu identitas...</p>
+                    </div>
+                    <button id="admin-login-btn" class="text-xs text-slate-400 hover:text-blue-500 transition-colors">Admin Panel</button>
+                </div>
+
+                <!-- Stats -->
+                <div class="grid grid-cols-3 gap-4 mb-8">
+                    <div class="bg-blue-50 p-4 rounded-xl text-center border border-blue-100">
+                        <p class="text-xs uppercase tracking-wider text-blue-600 font-semibold">Waktu</p>
+                        <p id="timer" class="text-2xl font-bold text-blue-900">60s</p>
+                    </div>
+                    <div class="bg-emerald-50 p-4 rounded-xl text-center border border-emerald-100">
+                        <p class="text-xs uppercase tracking-wider text-emerald-600 font-semibold">WPM</p>
+                        <p id="wpm" class="text-2xl font-bold text-emerald-900">0</p>
+                    </div>
+                    <div class="bg-purple-50 p-4 rounded-xl text-center border border-purple-100">
+                        <p class="text-xs uppercase tracking-wider text-purple-600 font-semibold">Akurasi</p>
+                        <p id="accuracy" class="text-2xl font-bold text-purple-900">0%</p>
+                    </div>
+                </div>
+
+                <!-- Text Display -->
+                <div id="text-display" class="bg-slate-100 p-6 rounded-xl mb-6 text-xl leading-relaxed text-slate-700 font-mono select-none pointer-events-none min-h-[120px]">
+                    Memuat tantangan...
+                </div>
+
+                <!-- Input Area -->
+                <div class="relative">
+                    <input type="text" id="input-field" 
+                        class="w-full p-4 text-lg border-2 border-slate-200 rounded-xl transition-all duration-200 font-mono"
+                        placeholder="Mulai mengetik untuk memulai waktu..." autocomplete="off">
+                    <div class="flex gap-2 mt-4">
+                        <button id="reset-btn" class="flex-1 bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-xl transition-colors">Ulangi Tes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Kolom Kanan: Papan Skor -->
+        <div class="lg:col-span-1">
+            <div class="bg-white rounded-2xl shadow-xl p-6 h-full flex flex-col">
+                <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    🏆 Papan Skor Global
+                </h2>
+                <div id="leaderboard" class="space-y-3 overflow-y-auto max-h-[500px] scroll-custom flex-grow">
+                    <!-- Data Papan Skor -->
+                    <p class="text-slate-400 text-sm italic">Memuat skor...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nama Pengguna -->
+    <div id="name-modal" class="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-8 rounded-2xl max-w-sm w-full shadow-2xl">
+            <h2 class="text-2xl font-bold mb-2">Selamat Datang!</h2>
+            <p class="text-slate-500 mb-6 text-sm">Masukkan nama Anda untuk masuk ke papan skor.</p>
+            <input type="text" id="username-input" class="w-full p-3 border-2 border-slate-200 rounded-lg mb-4" placeholder="Contoh: Budi">
+            <button id="save-name-btn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors">Mulai Bermain</button>
+        </div>
+    </div>
+
+    <!-- Modal Admin -->
+    <div id="admin-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-8 rounded-2xl max-w-sm w-full">
+            <h2 class="text-2xl font-bold mb-4">Admin Mode</h2>
+            <input type="password" id="admin-pass" class="w-full p-3 border-2 border-slate-200 rounded-lg mb-4" placeholder="Password Admin">
+            <div class="flex gap-2">
+                <button id="cancel-admin-btn" class="flex-1 bg-slate-200 py-2 rounded-lg">Batal</button>
+                <button id="login-admin-btn" class="flex-1 bg-red-600 text-white py-2 rounded-lg">Masuk</button>
+            </div>
+            <div id="admin-actions" class="hidden mt-6 pt-6 border-t">
+                <button id="clear-scores-btn" class="w-full bg-red-100 text-red-600 py-2 rounded-lg font-bold hover:bg-red-200">Hapus Semua Skor</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, query, onSnapshot, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = { apiKey: "", authDomain: "", projectId: "", storageBucket: "", messagingSenderId: "", appId: "" };
+        
+        const app = initializeApp(window.__firebase_config ? JSON.parse(window.__firebase_config) : firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'typing-app-default';
+
+        // Game State
+        const sampleTexts = [
+            "Pendidikan adalah senjata paling mematikan di dunia, karena dengan pendidikan, Anda dapat mengubah dunia.",
+            "Teknologi digital telah mengubah cara kita berinteraksi dan bekerja di era modern yang serba cepat ini.",
+            "Keberhasilan bukanlah akhir, kegagalan bukanlah fatal: keberanian untuk melanjutkanlah yang utama."
+        ];
+
+        let currentText = sampleTexts[Math.floor(Math.random() * sampleTexts.length)];
+        let words = currentText.split(" ");
+        let wordIndex = 0;
+        let startTime = null;
+        let timerInterval = null;
+        let timeLeft = 60;
+        let isPlaying = false;
+        let totalCorrectChars = 0;
+        let totalTypedChars = 0;
+        let userName = localStorage.getItem('typing_username') || "";
+        let userId = "";
+
+        // Elements
+        const textDisplay = document.getElementById('text-display');
+        const inputField = document.getElementById('input-field');
+        const timerEl = document.getElementById('timer');
+        const wpmEl = document.getElementById('wpm');
+        const accEl = document.getElementById('accuracy');
+        const leaderboardEl = document.getElementById('leaderboard');
+        const nameModal = document.getElementById('name-modal');
+        const adminModal = document.getElementById('admin-modal');
+
+        // Initialize Auth
+        async function initAuth() {
+            try {
+                await signInAnonymously(auth);
+            } catch (error) {
+                console.error("Auth error:", error);
+            }
+            
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    userId = user.uid;
+                    if (userName) {
+                        nameModal.classList.add('hidden');
+                        document.getElementById('user-display').innerText = `Pemain: ${userName}`;
+                        setupLeaderboard();
+                    } else {
+                        nameModal.classList.remove('hidden');
+                    }
+                }
+            });
+        }
+
+        // Leaderboard Listener
+        function setupLeaderboard() {
+            if (!userId) return;
+            const q = collection(db, 'artifacts', appId, 'public', 'data', 'scores');
+            onSnapshot(q, (snapshot) => {
+                const scores = [];
+                snapshot.forEach(doc => scores.push(doc.data()));
+                scores.sort((a, b) => b.wpm - a.wpm);
+                
+                leaderboardEl.innerHTML = scores.map((s, i) => `
+                    <div class="flex items-center justify-between p-3 rounded-lg ${s.uid === userId ? 'bg-blue-50 border border-blue-200' : 'bg-slate-50'}">
+                        <div class="flex items-center gap-3">
+                            <span class="font-bold text-slate-400 w-6">#${i+1}</span>
+                            <div>
+                                <p class="font-bold text-slate-700 leading-none">${s.name}</p>
+                                <p class="text-[10px] text-slate-400 uppercase tracking-tighter">${new Date(s.timestamp).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-blue-600">${s.wpm} <span class="text-[10px]">WPM</span></p>
+                            <p class="text-[10px] text-slate-500">${s.acc}% Akurasi</p>
+                        </div>
+                    </div>
+                `).join("");
+                if (scores.length === 0) leaderboardEl.innerHTML = '<p class="text-slate-400 text-sm italic">Belum ada skor.</p>';
+            }, (err) => console.error(err));
+        }
+
+        // Game Logic
+        function initText() {
+            textDisplay.innerHTML = words.map((word, i) => `<span id="word-${i}">${word}</span>`).join(" ");
+            highlightWord();
+        }
+
+        function highlightWord() {
+            const el = document.getElementById(`word-${wordIndex}`);
+            if (el) el.className = 'word-highlight';
+        }
+
+        function startTimer() {
+            if (startTime) return;
+            startTime = new Date();
+            isPlaying = true;
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerEl.innerText = timeLeft + "s";
+                if (timeLeft <= 0) endGame();
+            }, 1000);
+        }
+
+        async function endGame() {
+            clearInterval(timerInterval);
+            isPlaying = false;
+            inputField.disabled = true;
+            
+            const finalWpm = parseInt(wpmEl.innerText);
+            const finalAcc = parseInt(accEl.innerText);
+
+            if (auth.currentUser && userName) {
+                const scoreRef = doc(db, 'artifacts', appId, 'public', 'data', 'scores', auth.currentUser.uid);
+                await setDoc(scoreRef, {
+                    uid: auth.currentUser.uid,
+                    name: userName,
+                    wpm: finalWpm,
+                    acc: finalAcc,
+                    timestamp: Date.now()
+                });
+            }
+            
+            setTimeout(() => {
+                alert(`Selesai! Skor Anda: ${finalWpm} WPM dengan akurasi ${finalAcc}%`);
+                location.reload();
+            }, 500);
+        }
+
+        inputField.addEventListener('input', () => {
+            if (!isPlaying && timeLeft > 0) startTimer();
+            const typedValue = inputField.value;
+            const currentWord = words[wordIndex];
+            const currentWordEl = document.getElementById(`word-${wordIndex}`);
+
+            if (typedValue.endsWith(" ") || (wordIndex === words.length - 1 && typedValue === currentWord)) {
+                const cleanTyped = typedValue.trim();
+                if (cleanTyped === currentWord) {
+                    currentWordEl.className = 'word-correct';
+                    totalCorrectChars += currentWord.length + 1;
+                } else {
+                    currentWordEl.className = 'word-wrong';
+                }
+                totalTypedChars += cleanTyped.length + 1;
+                wordIndex++;
+                inputField.value = "";
+                if (wordIndex < words.length) highlightWord(); else endGame();
+            }
+
+            const timeElapsed = (new Date() - startTime) / 60000;
+            const wpm = Math.round((totalCorrectChars / 5) / (timeElapsed || 0.01));
+            const acc = totalTypedChars > 0 ? Math.round((totalCorrectChars / totalTypedChars) * 100) : 100;
+            wpmEl.innerText = wpm;
+            accEl.innerText = acc + "%";
+        });
+
+        // UI Events
+        document.getElementById('save-name-btn').addEventListener('click', () => {
+            const val = document.getElementById('username-input').value.trim();
+            if (val) {
+                userName = val;
+                localStorage.setItem('typing_username', val);
+                nameModal.classList.add('hidden');
+                document.getElementById('user-display').innerText = `Pemain: ${userName}`;
+                setupLeaderboard();
+            } else {
+                alert("Mohon masukkan nama terlebih dahulu.");
+            }
+        });
+
+        document.getElementById('admin-login-btn').onclick = () => adminModal.classList.remove('hidden');
+        document.getElementById('cancel-admin-btn').onclick = () => adminModal.classList.add('hidden');
+        document.getElementById('login-admin-btn').onclick = () => {
+            const pass = document.getElementById('admin-pass').value;
+            if (pass === "admin123") {
+                document.getElementById('admin-actions').classList.remove('hidden');
+            } else {
+                alert("Password salah!");
+            }
+        };
+
+        document.getElementById('clear-scores-btn').onclick = async () => {
+            if (confirm("Hapus semua data papan skor?")) {
+                const q = collection(db, 'artifacts', appId, 'public', 'data', 'scores');
+                const snapshot = await getDocs(q);
+                snapshot.forEach(async (d) => {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'scores', d.id));
+                });
+                alert("Papan skor dibersihkan!");
+            }
+        };
+
+        document.getElementById('reset-btn').onclick = () => location.reload();
+
+        window.onload = () => {
+            initAuth();
+            initText();
+        };
+    </script>
+</body>
+</html>
