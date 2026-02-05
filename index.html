@@ -17,13 +17,12 @@
 <body class="bg-slate-50 min-h-screen p-4 font-sans">
 
     <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Area Game -->
         <div class="lg:col-span-2 space-y-6">
             <div class="bg-white rounded-2xl shadow-xl p-8">
                 <div class="flex justify-between items-center mb-8">
                     <div>
                         <h1 class="text-3xl font-bold text-slate-800">Typing Challenge 🚀</h1>
-                        <p id="status-user" class="text-slate-500 text-sm italic">Menghubungkan ke server...</p>
+                        <p id="status-user" class="text-slate-500 text-sm italic text-amber-600">Menghubungkan ke server...</p>
                     </div>
                     <button id="admin-trigger" class="text-xs text-slate-300 hover:text-slate-500">Admin</button>
                 </div>
@@ -49,16 +48,15 @@
 
                 <input type="text" id="input-field" disabled
                     class="w-full p-4 text-lg border-2 border-slate-200 rounded-xl transition-all font-mono opacity-50"
-                    placeholder="Masukan nama dulu di kanan/atas...">
+                    placeholder="Masukan nama dulu...">
             </div>
         </div>
 
-        <!-- Papan Skor -->
         <div class="lg:col-span-1">
             <div class="bg-white rounded-2xl shadow-xl p-6 h-full flex flex-col">
                 <h2 class="text-xl font-bold text-slate-800 mb-4">🏆 Skor Tertinggi</h2>
                 <div id="leaderboard" class="space-y-3 overflow-y-auto max-h-[500px]">
-                    <p class="text-slate-400 text-sm">Menghubungkan...</p>
+                    <p class="text-slate-400 text-sm">Menunggu data...</p>
                 </div>
             </div>
         </div>
@@ -66,33 +64,141 @@
 
     <!-- Modal Nama -->
     <div id="modal-nama" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-        <div class="bg-white p-8 rounded-2xl max-w-sm w-full shadow-2xl">
+        <div class="bg-white p-8 rounded-2xl max-w-sm w-full shadow-2xl text-center">
             <h2 class="text-2xl font-bold mb-2">Selamat Datang!</h2>
-            <p class="text-slate-500 mb-6 text-sm">Masukkan nama untuk berpartisipasi dalam kompetisi.</p>
-            <input type="text" id="input-username" class="w-full p-3 border-2 border-slate-200 rounded-lg mb-4 outline-none focus:border-blue-500" placeholder="Nama Anda...">
-            <button id="btn-submit-name" disabled class="w-full bg-blue-400 text-white py-3 rounded-lg font-bold cursor-not-allowed">
-                <span id="btn-text" class="loading-dots">Menyiapkan Server</span>
+            <p class="text-slate-500 mb-6 text-sm">Masukkan nama untuk bermain.</p>
+            <input type="text" id="input-username" class="w-full p-3 border-2 border-slate-200 rounded-lg mb-4 outline-none focus:border-blue-500 text-center" placeholder="Nama Anda...">
+            <button id="btn-submit-name" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold transition-colors">
+                Mulai Bermain
             </button>
+            <p id="loading-msg" class="text-[10px] text-slate-400 mt-2 italic loading-dots">Menghubungkan</p>
         </div>
     </div>
 
-    <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, onSnapshot, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global Config
-        const firebaseConfig = JSON.parse(window.__firebase_config || '{}');
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'typing-comp-123';
+        // --- KONFIGURASI FIREBASE ---
+        // MASUKKAN CONFIG ANDA DI SINI
+        const manualConfig = {
+            apiKey: "AIzaSyCSni1-CKkg1-yM32fkGvlGxbToy7BnRaI",
+            authDomain: "typing-game-a2aa3.firebaseapp.com",
+            projectId: "typing-game-a2aa3",
+            storageBucket: "typing-game-a2aa3.firebasestorage.app",
+            messagingSenderId: "193085392028",
+            appId: "1:193085392028:web:4d69af0ffa079fe12f5959",
+            measurementId: "G-6LCDJSKJ31"
+        };
 
-        let userUid = null;
+        // Deteksi apakah ada config dari environment atau gunakan manual
+        const firebaseConfig = (window.__firebase_config && window.__firebase_config !== '{}') 
+            ? JSON.parse(window.__firebase_config) 
+            : manualConfig;
+
+        // Global State
+        let db = null;
+        let auth = null;
+        let userUid = "local-" + Math.random().toString(36).substr(2, 9);
         let userName = localStorage.getItem('typing_name') || "";
-        
-        // Game Logic Variables
+        let isFirebaseReady = false;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'typing-comp-v1';
+
+        // --- FIREBASE INIT ---
+        try {
+            if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "ISI_API_KEY_ANDA") {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                signInAnonymously(auth).then(() => {
+                    onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            userUid = user.uid;
+                            isFirebaseReady = true;
+                            document.getElementById('status-user').innerText = "Mode Online Aktif";
+                            document.getElementById('status-user').className = "text-emerald-600 text-sm italic";
+                            document.getElementById('loading-msg').innerText = "Server Siap!";
+                            loadLeaderboard();
+                        }
+                    });
+                }).catch(e => {
+                    console.error("Auth Error:", e);
+                    useLocalMode();
+                });
+            } else {
+                useLocalMode();
+            }
+        } catch (e) {
+            useLocalMode();
+        }
+
+        function useLocalMode() {
+            console.log("Menggunakan Mode Lokal");
+            document.getElementById('status-user').innerText = "Mode Lokal (Offline)";
+            document.getElementById('loading-msg').innerText = "Ready (Local Mode)";
+            updateLocalLeaderboard();
+        }
+
+        // --- DATA LOGIC ---
+        function loadLeaderboard() {
+            if (!isFirebaseReady || !db) {
+                updateLocalLeaderboard();
+                return;
+            }
+            // Path sesuai standar artifacts
+            const q = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+            onSnapshot(q, (snapshot) => {
+                const data = [];
+                snapshot.forEach(d => data.push(d.data()));
+                renderLeaderboardUI(data);
+            }, (err) => {
+                console.error("Snapshot error:", err);
+                updateLocalLeaderboard();
+            });
+        }
+
+        function updateLocalLeaderboard() {
+            const scores = JSON.parse(localStorage.getItem('local_scores') || "[]");
+            renderLeaderboardUI(scores);
+        }
+
+        function renderLeaderboardUI(data) {
+            data.sort((a, b) => b.wpm - a.wpm);
+            const html = data.map((s, i) => `
+                <div class="flex items-center justify-between p-3 rounded-lg ${s.uid === userUid ? 'bg-blue-50 border border-blue-200' : 'bg-slate-50'}">
+                    <div class="flex items-center gap-3">
+                        <span class="font-bold text-slate-400 w-5">#${i+1}</span>
+                        <span class="font-bold text-slate-700">${s.name}</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-blue-600 font-black">${s.wpm}</span> <span class="text-[10px] text-slate-400">WPM</span>
+                    </div>
+                </div>
+            `).join("");
+            document.getElementById('leaderboard').innerHTML = html || '<p class="text-slate-400 text-sm italic">Belum ada skor.</p>';
+        }
+
+        async function saveScore(wpm, acc) {
+            const scoreData = { uid: userUid, name: userName, wpm, acc, timestamp: Date.now() };
+            if (isFirebaseReady && db) {
+                try {
+                    const scoreDoc = doc(db, 'artifacts', appId, 'public', 'data', 'leaderboard', userUid);
+                    await setDoc(scoreDoc, scoreData);
+                } catch (e) { console.error("Save error:", e); }
+            }
+            let localScores = JSON.parse(localStorage.getItem('local_scores') || "[]");
+            const existingIdx = localScores.findIndex(s => s.name === userName);
+            if (existingIdx > -1) {
+                if(wpm > localScores[existingIdx].wpm) localScores[existingIdx] = scoreData;
+            } else {
+                localScores.push(scoreData);
+            }
+            localStorage.setItem('local_scores', JSON.stringify(localScores));
+        }
+
+        // --- GAME UI ---
         const texts = [
             "Pendidikan adalah kunci untuk membuka pintu emas kebebasan bagi semua orang di dunia.",
             "Teknologi digital berkembang sangat pesat dan mengubah cara kita bekerja setiap hari.",
@@ -106,91 +212,14 @@
         let correctChars = 0;
         let totalTyped = 0;
 
-        // --- AUTH SECTION (RULE 3) ---
-        async function startAuth() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (err) {
-                console.error("Auth Fail:", err);
-                document.getElementById('btn-text').innerText = "Gagal Terhubung";
-            }
-        }
-
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                userUid = user.uid;
-                const btn = document.getElementById('btn-submit-name');
-                btn.disabled = false;
-                btn.classList.remove('bg-blue-400', 'cursor-not-allowed');
-                btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
-                document.getElementById('btn-text').innerText = "Mulai Bermain";
-                document.getElementById('status-user').innerText = "Terhubung ke Server";
-                
-                if (userName) {
-                    closeModalAndStart();
-                }
-                loadLeaderboard();
-            }
-        });
-
-        // --- FIRESTORE SECTION ---
-        function loadLeaderboard() {
-            if (!userUid) return;
-            // Rule 1: Strict Path
-            const q = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
-            onSnapshot(q, (snapshot) => {
-                const data = [];
-                snapshot.forEach(d => data.push(d.data()));
-                // Rule 2: Sort in memory
-                data.sort((a, b) => b.wpm - a.wpm);
-                
-                const html = data.map((s, i) => `
-                    <div class="flex items-center justify-between p-3 rounded-lg ${s.uid === userUid ? 'bg-blue-50 border border-blue-200' : 'bg-slate-50'}">
-                        <div class="flex items-center gap-3">
-                            <span class="font-bold text-slate-400 w-5">#${i+1}</span>
-                            <span class="font-bold text-slate-700">${s.name}</span>
-                        </div>
-                        <div class="text-right">
-                            <span class="text-blue-600 font-black">${s.wpm}</span> <span class="text-[10px] text-slate-400">WPM</span>
-                        </div>
-                    </div>
-                `).join("");
-                document.getElementById('leaderboard').innerHTML = html || '<p class="text-slate-400 text-sm italic">Belum ada skor.</p>';
-            }, (err) => {
-                console.error("Leaderboard Error:", err);
-            });
-        }
-
-        async function saveScore(wpm, acc) {
-            if (!userUid || !userName) return;
-            const scoreDoc = doc(db, 'artifacts', appId, 'public', 'data', 'leaderboard', userUid);
-            await setDoc(scoreDoc, {
-                uid: userUid,
-                name: userName,
-                wpm: wpm,
-                acc: acc,
-                timestamp: Date.now()
-            });
-        }
-
-        // --- GAME UI SECTION ---
         function closeModalAndStart() {
             document.getElementById('modal-nama').classList.add('hidden');
-            document.getElementById('status-user').innerText = "Pemain: " + userName;
             document.getElementById('input-field').disabled = false;
             document.getElementById('input-field').classList.remove('opacity-50');
             document.getElementById('input-field').placeholder = "Mulai mengetik...";
-            renderText();
-        }
-
-        function renderText() {
-            const display = document.getElementById('text-display');
-            display.innerHTML = currentWords.map((w, i) => `<span id="w-${i}">${w}</span>`).join(" ");
+            document.getElementById('text-display').innerHTML = currentWords.map((w, i) => `<span id="w-${i}">${w}</span>`).join(" ");
             document.getElementById(`w-${wordIdx}`).className = 'word-highlight';
+            document.getElementById('input-field').focus();
         }
 
         document.getElementById('btn-submit-name').onclick = () => {
@@ -199,6 +228,8 @@
                 userName = val;
                 localStorage.setItem('typing_name', val);
                 closeModalAndStart();
+            } else {
+                alert("Masukkan nama!");
             }
         };
 
@@ -209,16 +240,11 @@
                 const timerInt = setInterval(() => {
                     timer--;
                     document.getElementById('timer').innerText = timer + "s";
-                    if (timer <= 0) {
-                        clearInterval(timerInt);
-                        finishGame();
-                    }
+                    if (timer <= 0) { clearInterval(timerInt); finishGame(); }
                 }, 1000);
             }
-
             const val = this.value;
             const target = currentWords[wordIdx];
-
             if (val.endsWith(" ") || (wordIdx === currentWords.length - 1 && val === target)) {
                 const typed = val.trim();
                 const el = document.getElementById(`w-${wordIdx}`);
@@ -237,42 +263,36 @@
                     finishGame();
                 }
             }
-            updateLiveStats();
-        };
-
-        function updateLiveStats() {
             const elapsed = (Date.now() - startTime) / 60000 || 0.01;
-            const wpm = Math.round((correctChars / 5) / elapsed);
-            const acc = totalTyped > 0 ? Math.round((correctChars / totalTyped) * 100) : 0;
-            document.getElementById('wpm').innerText = wpm;
-            document.getElementById('accuracy').innerText = acc + "%";
-        }
+            document.getElementById('wpm').innerText = Math.round((correctChars / 5) / elapsed);
+            document.getElementById('accuracy').innerText = (totalTyped > 0 ? Math.round((correctChars / totalTyped) * 100) : 0) + "%";
+        };
 
         async function finishGame() {
             isRunning = false;
             document.getElementById('input-field').disabled = true;
             const finalWpm = parseInt(document.getElementById('wpm').innerText);
             const finalAcc = parseInt(document.getElementById('accuracy').innerText);
-            
             await saveScore(finalWpm, finalAcc);
-            alert(`Selesai! Skor Anda: ${finalWpm} WPM. Skor telah disimpan ke papan skor global.`);
+            alert(`Selesai! Skor: ${finalWpm} WPM.`);
             location.reload();
         }
 
-        // Admin Reset
         document.getElementById('admin-trigger').onclick = async () => {
             const pass = prompt("Password Admin:");
             if (pass === "admin123") {
-                if (confirm("Hapus semua skor di papan skor?")) {
+                localStorage.removeItem('local_scores');
+                if (isFirebaseReady) {
                     const q = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
                     const snap = await getDocs(q);
-                    snap.forEach(async (d) => await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'leaderboard', d.id)));
-                    alert("Leaderboard dibersihkan.");
+                    for (const d of snap.docs) {
+                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'leaderboard', d.id));
+                    }
                 }
+                alert("Data dibersihkan.");
+                location.reload();
             }
         };
-
-        startAuth();
     </script>
 </body>
 </html>
